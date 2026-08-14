@@ -1,0 +1,17 @@
+{
+  "name": "morrow-delivery-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "api:dev": "npm --prefix services/api run start:dev",
+    "api:build": "npm --prefix services/api run build",
+    "api:migrate": "npm --prefix services/api run prisma:migrate",
+    "api:seed": "npm --prefix services/api run prisma:seed",
+    "ops:dev": "npm --prefix apps/operations-web run dev",
+    "ops:build": "npm --prefix apps/operations-web run build",
+    "courier:run": "cd apps/courier_app && flutter run",
+    "courier:test": "cd apps/courier_app && flutter test",
+    "customer:run": "flutter run",
+    "customer:test": "flutter test"
+  }
+}

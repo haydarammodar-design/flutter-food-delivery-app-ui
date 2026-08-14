@@ -1,0 +1,73 @@
+name: Platform CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api
+    env:
+      DATABASE_URL: postgresql://delivery:delivery@localhost:5432/delivery_platform?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/api/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run lint
+      - run: npm test -- --runInBand
+      - run: npm run build
+
+  operations-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/operations-web
+    env:
+      NEXT_PUBLIC_API_URL: https://api.example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/operations-web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  customer-flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 2.10.5
+          channel: stable
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter build web
+
+  courier-flutter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/courier_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 2.10.5
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web

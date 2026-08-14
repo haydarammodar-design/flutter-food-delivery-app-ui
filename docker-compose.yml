@@ -1,0 +1,96 @@
+name: morrow-delivery-platform
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-delivery_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-delivery}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-delivery_local_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-delivery}:${POSTGRES_PASSWORD:-delivery_local_password}@postgres:5432/${POSTGRES_DB:-delivery_platform}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-replace-this-local-development-secret-before-sharing}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      SEED_PASSWORD: ${SEED_PASSWORD:-replace-this-local-seed-password}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.test}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-replace-this-local-admin-password}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080}
+      API_DOCUMENTATION_ENABLED: ${API_DOCUMENTATION_ENABLED:-true}
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      MEDIA_PROVIDER: ${MEDIA_PROVIDER:-cloudinary}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+    command: sh -c "npx prisma migrate deploy && node dist/main"
+    ports:
+      - "3000:3000"
+    volumes:
+      - media-data:/app/uploads
+
+  operations-web:
+    build:
+      context: ./apps/operations-web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+    ports:
+      - "5173:3000"
+
+volumes:
+  postgres-data:
+  redis-data:
+  media-data:
